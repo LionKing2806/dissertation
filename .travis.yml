@@ -1,0 +1,12 @@
+language: python
+python:
+  - "3.6"
+  - "3.7"
+  - "3.8"
+install:
+  - unzip data/xstance-data-v1.0.zip -d data
+  - pip install scikit-learn
+  - pip install -r fasttext_baseline/requirements.txt
+  - pip install -r mbert_baseline/requirements.txt
+  - cd fasttext_baseline && wget http://www.statmt.org/europarl/v7/tools.tgz && tar -xvf tools.tgz && cd ..
+script: python evaluate.py --gold data/test.jsonl --pred predictions/mbert_pred.jsonl

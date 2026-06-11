@@ -178,3 +178,8 @@ python evaluate.py --gold data/xstance-data-v1.0/test.jsonl --pred predictions/m
 * Majority baselines and FastText follow the original X-STANCE implementation.
 * The mBERT baseline was reproduced using HuggingFace Transformers instead of AllenNLP.
 * Trained mBERT checkpoints are not included in this repository.
+
+## References
+
+Vamvas, J. and Sennrich, R. (2020). X-STANCE: A Multilingual Multi-Target Dataset for Stance Detection. Proceedings of the 5th Swiss Text Analytics Conference (SwissText) and 16th Conference on Natural Language Processing (KONVENS).
+

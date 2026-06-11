@@ -129,6 +129,19 @@ mbert_hf_pred.jsonl
 ├── README.md
 └── LICENSE
 ```
+## Environment
+
+For Majority, FastText and Evaluation:
+
+```bash
+pip install -r requirements_xstance.txt
+```
+
+For mBERT:
+
+```bash
+pip install -r requirements_mbert.txt
+```
 
 ## Notes
 

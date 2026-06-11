@@ -1,3 +1,10 @@
+## Disclaimer
+
+This repository is a reproduction of the X-STANCE benchmark introduced by Vamvas and Sennrich (2020). The original dataset, benchmark design and baseline methods belong to the original authors.
+
+Original repository:
+https://github.com/ZurichNLP/xstance
+
 # X-STANCE Reproduction
 
 This repository contains a reproduction of several baseline methods from the X-STANCE stance detection benchmark.

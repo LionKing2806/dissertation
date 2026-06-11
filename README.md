@@ -142,7 +142,37 @@ For mBERT:
 ```bash
 pip install -r requirements_mbert.txt
 ```
+## Quick Start
 
+### Majority Global
+
+```bash
+python majority_baselines.py --mode global
+```
+
+### Majority Target-wise
+
+```bash
+python majority_baselines.py --mode target-wise
+```
+
+### FastText
+
+```bash
+python fasttext_baseline/run.py
+```
+
+### mBERT
+
+```bash
+python mbert_hf_train.py
+```
+
+### Evaluation
+
+```bash
+python evaluate.py --gold data/xstance-data-v1.0/test.jsonl --pred predictions/mbert_hf_pred.jsonl
+```
 ## Notes
 
 * Majority baselines and FastText follow the original X-STANCE implementation.

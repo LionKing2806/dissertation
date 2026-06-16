@@ -64,13 +64,13 @@ Implementation based on the original X-STANCE FastText baseline.
 Location:
 
 ```text
-fasttext_baseline/
+code/fasttext_baseline/
 ```
 
 Main script:
 
 ```text
-fasttext_baseline/run.py
+code/fasttext_baseline/run.py
 ```
 
 ### 4. Multilingual BERT (mBERT)
@@ -102,7 +102,7 @@ evaluate.py
 Example:
 
 ```bash
-python evaluate.py --gold data/xstance-data-v1.0/test.jsonl --pred predictions/mbert_hf_pred.jsonl
+python evaluate.py --gold data/xstance-data-v1.0/test.jsonl --pred outputs/predictions/mbert_hf_pred.jsonl
 ```
 
 ## Prediction Files
@@ -110,7 +110,7 @@ python evaluate.py --gold data/xstance-data-v1.0/test.jsonl --pred predictions/m
 Example prediction outputs are stored in:
 
 ```text
-predictions/
+outputs/predictions/
 ```
 
 Including:
@@ -126,10 +126,19 @@ mbert_hf_pred.jsonl
 
 ```text
 .
+├── code/
+│   └── fasttext_baseline/
 ├── data/
-├── fasttext_baseline/
+│   └── xstance-data-v1.0/
 ├── mbert_baseline/
-├── predictions/
+├── mbert_hf_model/
+├── notes/
+│   ├── Evaluation of the X-STANCE Reproduction.md
+│   └── Project Log – Week 1.md
+├── outputs/
+│   └── predictions/
+├── figures/
+├── dissertation/
 ├── evaluate.py
 ├── majority_baselines.py
 ├── mbert_hf_train.py
@@ -166,7 +175,7 @@ python majority_baselines.py --mode target-wise
 ### FastText
 
 ```bash
-python fasttext_baseline/run.py
+python code/fasttext_baseline/run.py
 ```
 
 ### mBERT
@@ -178,7 +187,7 @@ python mbert_hf_train.py
 ### Evaluation
 
 ```bash
-python evaluate.py --gold data/xstance-data-v1.0/test.jsonl --pred predictions/mbert_hf_pred.jsonl
+python evaluate.py --gold data/xstance-data-v1.0/test.jsonl --pred outputs/predictions/mbert_hf_pred.jsonl
 ```
 ## Notes
 
@@ -186,7 +195,10 @@ python evaluate.py --gold data/xstance-data-v1.0/test.jsonl --pred predictions/m
 * The mBERT baseline was reproduced using HuggingFace Transformers instead of AllenNLP.
 * Trained mBERT checkpoints are not included in this repository.
 
+
 ## References
 
 Vamvas, J. and Sennrich, R. (2020). X-STANCE: A Multilingual Multi-Target Dataset for Stance Detection. Proceedings of the 5th Swiss Text Analytics Conference (SwissText) and 16th Conference on Natural Language Processing (KONVENS).
+
+
 

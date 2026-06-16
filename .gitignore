@@ -138,5 +138,6 @@ mbert_hf_model/
 __pycache__/
 *.pyc
 
-fasttext_baseline/model.bin
-fasttext_baseline/processed_data/
+# fastText generated files
+code/fasttext_baseline/model.bin
+code/fasttext_baseline/processed_data/

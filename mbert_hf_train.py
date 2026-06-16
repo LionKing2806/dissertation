@@ -27,7 +27,7 @@ print("import transformers ok", flush=True)
 DATA_DIR = "data/xstance-data-v1.0"
 MODEL_NAME = "bert-base-multilingual-cased"
 OUTPUT_DIR = "mbert_hf_model"
-PRED_PATH = "predictions/mbert_hf_pred.jsonl"
+PRED_PATH = "outputs/predictions/mbert_hf_pred.jsonl"
 
 LABEL2ID = {
     "AGAINST": 0,

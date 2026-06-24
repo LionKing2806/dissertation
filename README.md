@@ -189,6 +189,28 @@ python mbert_hf_train.py
 ```bash
 python evaluate.py --gold data/xstance-data-v1.0/test.jsonl --pred outputs/predictions/mbert_hf_pred.jsonl
 ```
+
+### stance_moral_pipeline.py
+
+Unified stance detection and moral framing pipeline.
+
+* Input: CSV / TSV / TXT / JSON / JSONL datasets
+* Stance models: Logistic Regression, mBERT
+* Moral framing: MFD 2.0 lexicon-based analysis
+* Outputs: predictions, evaluation metrics, confusion matrix, error analysis and interpretation reports
+
+### mfd2.0.dic
+
+Moral Foundations Dictionary 2.0 (MFD 2.0) used for lexicon-based moral framing analysis.
+
+The dictionary is used to identify and score references to the five moral foundations:
+
+* Care / Harm
+* Fairness / Cheating
+* Loyalty / Betrayal
+* Authority / Subversion
+* Sanctity / Degradation
+
 ## Notes
 
 * Majority baselines and FastText follow the original X-STANCE implementation.

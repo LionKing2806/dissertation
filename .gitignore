@@ -141,3 +141,11 @@ __pycache__/
 # fastText generated files
 code/fasttext_baseline/model.bin
 code/fasttext_baseline/processed_data/
+
+
+# Pipeline outputs
+.run/
+xstance_outputs/
+semeval_outputs/
+tmp/
+mbert_outputs/

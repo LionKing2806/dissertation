@@ -149,3 +149,5 @@ xstance_outputs/
 semeval_outputs/
 tmp/
 mbert_outputs/
+models/
+tmp/

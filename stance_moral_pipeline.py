@@ -2,11 +2,17 @@ import argparse
 import os
 import re
 import pandas as pd
+import joblib
 
 from sklearn.pipeline import Pipeline
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import classification_report, confusion_matrix,f1_score
+from sklearn.metrics import (
+    classification_report,
+    confusion_matrix,
+    f1_score,
+    accuracy_score
+)
 
 import torch
 import numpy as np
@@ -394,7 +400,6 @@ def train_stance_mbert(train_df, text_col, label_col, model_name="bert-base-mult
     )
 
     trainer.train()
-
     return trainer, tokenizer, id2label
 
 
@@ -425,6 +430,38 @@ def predict_stance_mbert(trainer, tokenizer, id2label, df, text_col):
     df["stance_confidence_mbert"] = probs.max(axis=1)
 
     return df
+def save_mbert_model(trainer, tokenizer, model_dir):
+
+    os.makedirs(model_dir, exist_ok=True)
+
+    trainer.save_model(model_dir)
+    tokenizer.save_pretrained(model_dir)
+
+
+def load_mbert_model(model_dir):
+
+    tokenizer = AutoTokenizer.from_pretrained(model_dir)
+
+    model = AutoModelForSequenceClassification.from_pretrained(
+        model_dir
+    )
+
+    prediction_args = TrainingArguments(
+        output_dir=os.path.join(model_dir, "prediction_tmp"),
+        report_to="none"
+    )
+
+    trainer = Trainer(
+        model=model,
+        args=prediction_args
+    )
+
+    id2label = {
+        int(key): value
+        for key, value in model.config.id2label.items()
+    }
+
+    return trainer, tokenizer, id2label
 
 def create_summary(df, target_col=None):
 
@@ -511,6 +548,39 @@ def write_interpretation(df, summary, output_dir):
 
     return path
 
+def calculate_model_metrics(y_true, y_pred, model_name, labels):
+
+    report = classification_report(
+        y_true,
+        y_pred,
+        labels=labels,
+        output_dict=True,
+        zero_division=0
+    )
+
+    results = {
+        "Model": model_name,
+        "Accuracy": accuracy_score(y_true, y_pred),
+        "Macro-F1": f1_score(
+            y_true,
+            y_pred,
+            average="macro",
+            labels=labels,
+            zero_division=0
+        ),
+        "Weighted-F1": f1_score(
+            y_true,
+            y_pred,
+            average="weighted",
+            labels=labels,
+            zero_division=0
+        )
+    }
+
+    for label in labels:
+        results[f"F1-{label}"] = report[label]["f1-score"]
+
+    return results
 
 def main():
 
@@ -530,6 +600,17 @@ def main():
         "--mfd2_path",
         required=True,
         help="path to MFD 2.0 dictionary .dic file"
+    )
+    parser.add_argument(
+        "--model_dir",
+        default="models",
+        help="directory for saving and loading trained models"
+    )
+
+    parser.add_argument(
+        "--force_train",
+        action="store_true",
+        help="retrain models even if saved models already exist"
     )
 
     parser.add_argument("--output", default="outputs")
@@ -567,70 +648,246 @@ def main():
 
     df = prepare_input(df, args.text_col, args.target_col)
 
-    if args.train and args.label_col:
-        train_df = load_dataset(args.train)
-        train_df = prepare_input(train_df, args.text_col, args.target_col)
+    lr_model_path = os.path.join(
+        args.model_dir,
+        "logistic_regression.joblib"
+    )
 
-        # Logistic Regression baseline
+    mbert_model_dir = os.path.join(
+        args.model_dir,
+        "mbert"
+    )
+
+    saved_lr_exists = os.path.exists(lr_model_path)
+    saved_mbert_exists = os.path.exists(
+        os.path.join(mbert_model_dir, "config.json")
+    )
+
+    models_exist = saved_lr_exists and saved_mbert_exists
+
+    if models_exist and not args.force_train:
+
+        print("Loading saved Logistic Regression model...")
+        lr_model = joblib.load(lr_model_path)
+
+        print("Loading saved mBERT model...")
+        mbert_trainer, mbert_tokenizer, id2label = load_mbert_model(
+            mbert_model_dir
+        )
+
+    else:
+
+        if not args.train:
+            raise ValueError(
+                "No saved models were found. "
+                "Please provide --train for the first training run."
+            )
+
+        if not args.label_col:
+            raise ValueError(
+                "A label column is required for model training."
+            )
+
+        print("Training new models...")
+
+        os.makedirs(args.model_dir, exist_ok=True)
+
+        train_df = load_dataset(args.train)
+
+        if args.text_col not in train_df.columns:
+            raise ValueError(
+                f"Text column '{args.text_col}' was not found "
+                f"in the training data. Available columns: "
+                f"{list(train_df.columns)}"
+            )
+
+        if args.label_col not in train_df.columns:
+            raise ValueError(
+                f"Label column '{args.label_col}' was not found "
+                f"in the training data. Available columns: "
+                f"{list(train_df.columns)}"
+            )
+
+        train_df[args.text_col] = train_df[args.text_col].apply(
+            lambda x: preprocess_text(
+                x,
+                historical=args.historical_preprocess
+            )
+        )
+
+        train_df = prepare_input(
+            train_df,
+            args.text_col,
+            args.target_col
+        )
+
+        # Train and save Logistic Regression
+        print("Training Logistic Regression...")
+
         lr_model = train_stance_baseline(
             train_df,
             "model_input",
             args.label_col
         )
 
-        df = predict_stance(lr_model, df)
-        df = df.rename(columns={
-            "stance_prediction": "stance_prediction_lr",
-            "stance_confidence": "stance_confidence_lr"
-        })
+        joblib.dump(
+            lr_model,
+            lr_model_path
+        )
 
-        # mBERT model
+        print(
+            f"Logistic Regression saved to: "
+            f"{lr_model_path}"
+        )
+
+        # Train and save mBERT
+        print("Training mBERT...")
+
         mbert_trainer, mbert_tokenizer, id2label = train_stance_mbert(
             train_df,
             "model_input",
             args.label_col
         )
 
-        df = predict_stance_mbert(
+        save_mbert_model(
             mbert_trainer,
             mbert_tokenizer,
-            id2label,
-            df,
-            "model_input"
+            mbert_model_dir
         )
 
-        if args.label_col in df.columns:
-            lr_f1 = f1_score(
-                df[args.label_col],
-                df["stance_prediction_lr"],
-                average="macro"
+        print(
+            f"mBERT saved to: "
+            f"{mbert_model_dir}"
+        )
+
+    # Predict with Logistic Regression
+    df = predict_stance(
+        lr_model,
+        df
+    )
+
+    df = df.rename(
+        columns={
+            "stance_prediction": "stance_prediction_lr",
+            "stance_confidence": "stance_confidence_lr"
+        }
+    )
+
+    # Predict with mBERT
+    df = predict_stance_mbert(
+        mbert_trainer,
+        mbert_tokenizer,
+        id2label,
+        df,
+        "model_input"
+    )
+
+    # Evaluate models if the input data contains gold labels
+    if args.label_col and args.label_col in df.columns:
+
+        labels = sorted(
+            df[args.label_col]
+            .dropna()
+            .unique()
+        )
+        print("Evaluation labels:", labels)
+
+        lr_results = calculate_model_metrics(
+            df[args.label_col],
+            df["stance_prediction_lr"],
+            "Logistic Regression",
+            labels
+        )
+
+        mbert_results = calculate_model_metrics(
+            df[args.label_col],
+            df["stance_prediction_mbert"],
+            "mBERT",
+            labels
+        )
+
+        comparison_df = pd.DataFrame([
+            lr_results,
+            mbert_results
+        ])
+
+        numeric_cols = comparison_df.columns.drop("Model")
+
+        comparison_df[numeric_cols] = (
+            comparison_df[numeric_cols]
+            .round(4)
+        )
+
+        comparison_df.to_csv(
+            os.path.join(
+                args.output,
+                "model_comparison.csv"
+            ),
+            index=False,
+    encoding="utf-8-sig"
+        )
+
+        lr_f1 = lr_results["Macro-F1"]
+        mbert_f1 = mbert_results["Macro-F1"]
+
+        if mbert_f1 >= lr_f1:
+
+            best_model = "mBERT"
+
+            df["stance_prediction"] = (
+                df["stance_prediction_mbert"]
             )
 
-            mbert_f1 = f1_score(
-                df[args.label_col],
-                df["stance_prediction_mbert"],
-                average="macro"
+            df["stance_confidence"] = (
+                df["stance_confidence_mbert"]
             )
-
-            if mbert_f1 >= lr_f1:
-                best_model = "mbert"
-                df["stance_prediction"] = df["stance_prediction_mbert"]
-                df["stance_confidence"] = df["stance_confidence_mbert"]
-            else:
-                best_model = "logistic_regression"
-                df["stance_prediction"] = df["stance_prediction_lr"]
-                df["stance_confidence"] = df["stance_confidence_lr"]
-
-            with open(os.path.join(args.output, "model_comparison.txt"), "w", encoding="utf-8") as f:
-                f.write("Model comparison based on macro-F1\n\n")
-                f.write(f"Logistic Regression macro-F1: {lr_f1:.4f}\n")
-                f.write(f"mBERT macro-F1: {mbert_f1:.4f}\n")
-                f.write(f"Selected model: {best_model}\n")
 
         else:
-            # 如果 input 数据没有真实标签，就默认用 mBERT
-            df["stance_prediction"] = df["stance_prediction_mbert"]
-            df["stance_confidence"] = df["stance_confidence_mbert"]
+
+            best_model = "Logistic Regression"
+
+            df["stance_prediction"] = (
+                df["stance_prediction_lr"]
+            )
+
+            df["stance_confidence"] = (
+                df["stance_confidence_lr"]
+            )
+
+        with open(
+            os.path.join(
+                args.output,
+                "model_comparison.txt"
+            ),
+            "w",
+            encoding="utf-8"
+        ) as f:
+
+            f.write(
+                "Logistic Regression versus mBERT\n\n"
+            )
+
+            f.write(
+                comparison_df.to_string(index=False)
+            )
+
+            f.write("\n\n")
+
+            f.write(
+                f"Selected model based on Macro-F1: "
+                f"{best_model}\n"
+            )
+
+    else:
+
+        # Unlabelled input data uses mBERT by default
+        df["stance_prediction"] = (
+            df["stance_prediction_mbert"]
+        )
+
+        df["stance_confidence"] = (
+            df["stance_confidence_mbert"]
+        )
     df = add_mfd2_features(df,
                            args.text_col,
                            args.mfd2_path)
@@ -680,8 +937,55 @@ def main():
 
     summary = create_summary(df, args.target_col)
 
-    df.to_csv(os.path.join(args.output, "predictions_and_moral_features.csv"), index=False)
-    summary.to_csv(os.path.join(args.output, "summary_by_target.csv"), index=False)
+    # -----------------------------
+    # Moral dictionary-match counts
+    # -----------------------------
+    counts = (
+        df["dominant_foundation"]
+        .value_counts()
+        .rename_axis("Foundation")
+        .reset_index(name="Texts")
+    )
+
+    counts.to_csv(
+        os.path.join(
+            args.output,
+            "moral_match_counts.csv"
+        ),
+        index=False,
+        encoding="utf-8-sig"
+    )
+
+    # -----------------------------
+    # Random examples for manual validation
+    # -----------------------------
+    validation_examples = (
+        df[
+            [
+                args.text_col,
+                "dominant_foundation",
+                "stance_prediction"
+            ]
+        ]
+        .sample(
+            n=10,
+            random_state=42
+        )
+    )
+
+    validation_examples.to_csv(
+        os.path.join(
+            args.output,
+            "moral_validation_examples.csv"
+        ),
+        index=False,
+        encoding="utf-8-sig"
+    )
+
+    df.to_csv(os.path.join(args.output, "predictions_and_moral_features.csv"), index=False,
+    encoding="utf-8-sig")
+    summary.to_csv(os.path.join(args.output, "summary_by_target.csv"), index=False,
+    encoding="utf-8-sig")
 
     if args.label_col and args.label_col in df.columns and "stance_prediction" in df.columns:
         report = classification_report(df[args.label_col], df["stance_prediction"])
@@ -703,13 +1007,15 @@ def main():
             os.path.join(
                 args.output,
                 "confusion_matrix.csv"
-            )
+            ),
+    encoding="utf-8-sig"
         )
         with open(os.path.join(args.output, "stance_evaluation.txt"), "w", encoding="utf-8") as f:
             f.write(report)
 
         errors = df[df[args.label_col] != df["stance_prediction"]]
-        errors.to_csv(os.path.join(args.output, "error_analysis.csv"), index=False)
+        errors.to_csv(os.path.join(args.output, "error_analysis.csv"), index=False,
+    encoding="utf-8-sig")
 
     write_interpretation(df, summary, args.output)
 
@@ -719,3 +1025,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

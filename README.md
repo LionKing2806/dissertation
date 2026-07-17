@@ -217,6 +217,33 @@ The dictionary is used to identify and score references to the five moral founda
 * The mBERT baseline was reproduced using HuggingFace Transformers instead of AllenNLP.
 * Trained mBERT checkpoints are not included in this repository.
 
+## Weekly Progress Update (Week 5)
+
+### Completed this week
+
+- Conducted an exploratory data analysis (EDA) of the Defoe biblical-reference dataset.
+- Examined dataset structure, publication years, missing values, repeated biblical references and data quality.
+- Produced descriptive summary tables and an automatic EDA report.
+- Identified records requiring manual review (weak references, incorrect interpretations and unusual entries).
+
+### EDA code
+
+The EDA implementation is stored in: Defoe_EDA.py
+
+
+This script generates descriptive statistics, data-quality summaries, review flags and summary tables for the Defoe dataset.
+
+### Next steps
+
+Technical:
+- Develop the stance annotation scheme based on theological targets.
+- Integrate the Defoe dataset into the stance and moral framing pipeline.
+- Evaluate transferability from SemEval-trained models to historical texts.
+
+Interpretive:
+- Define stance targets for the selected theological topics.
+- Manually review flagged entries.
+- Analyze stance patterns and moral framing across Defoe's works.
 
 ## References
 
